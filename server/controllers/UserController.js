@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { validationResult } from "express-validator";
 import UserModel from "../models/User.js";
+import { pool } from "../db.js";
 
 export const register = async (req, res) => {
   try {
@@ -10,22 +11,28 @@ export const register = async (req, res) => {
       return res.status(400).json(errors.array());
     }
 
+    const isEmail = await pool.query("SELECT email FROM users WHERE email=$1",[req.body.email])
+    if(isEmail.rowCount !== 0){
+      console.log(isEmail);
+      return res.json({
+        message:"email is exists"
+      });
+    }
+
     const password = req.body.password;
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
 
-    const doc = new UserModel({
-      email: req.body.email,
-      fullName: req.body.fullName,
-      avatarUrl: req.body.avatarUrl,
-      passwordHash: hash,
-    });
+    const user = await pool.query(
+      "INSERT INTO users(fullName,email,passwordHash) values($1,$2,$3) RETURNING id",
+      [req.body.fullName, req.body.email, hash]
+    );
 
-    const user = await doc.save();
+    console.log(user.rows[0].id);
 
     const token = jwt.sign(
       {
-        _id: user._id,
+        _id: user.rows[0].id,
       },
       "secret123",
       {
@@ -33,10 +40,10 @@ export const register = async (req, res) => {
       }
     );
 
-    const { passwordHash, ...userData } = user._doc;
+    // const { passwordHash, ...userData } = user
 
     res.json({
-      ...userData,
+     
       token,
     });
   } catch (err) {
@@ -49,9 +56,9 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const user = await UserModel.findOne({ email: req.body.email });
+    const user = await pool.query("SELECT id,email,passwordhash,fullname FROM users WHERE email=$1",[req.body.email])
 
-    if (!user) {
+    if(user.rowCount === 0){
       return res.status(400).json({
         message: "Нет такого пользователя",
       });
@@ -59,7 +66,7 @@ export const login = async (req, res) => {
 
     const isValidPass = await bcrypt.compare(
       req.body.password,
-      user._doc.passwordHash
+      user.rows[0].passwordhash
     );
 
     if (!isValidPass) {
@@ -70,7 +77,7 @@ export const login = async (req, res) => {
 
     const token = jwt.sign(
       {
-        _id: user._id,
+        _id: user.rows[0].id,
       },
       "secret123",
       {
@@ -78,10 +85,10 @@ export const login = async (req, res) => {
       }
     );
 
-    const { passwordHash, ...userData } = user._doc;
+    // const { passwordHash, ...userData } = user._doc;
 
     res.json({
-      ...userData,
+      fullName: user.rows[0].fullname,
       token,
     });
   } catch (err) {
@@ -94,7 +101,8 @@ export const login = async (req, res) => {
 
 export const getMe = async (req, res) => {
   try {
-    const user = await UserModel.findById(req.userId);
+    const user = await pool.query("SELECT email,fullname FROM users WHERE id=$1",[req.userId])
+    // const user = await UserModel.findById(req.userId);
 
     if (!user) {
       res.status(404).json({
@@ -102,10 +110,11 @@ export const getMe = async (req, res) => {
       });
     }
 
-    const { passwordHash, ...userData } = user._doc;
+    // const { passwordHash, ...userData } = user._doc;
 
     res.json({
-      userData,
+      fullName: user.rows[0].fullname,
+      email: user.rows[0].email,
     });
   } catch (err) {}
 };
