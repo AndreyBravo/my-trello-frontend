@@ -12,7 +12,13 @@ export const registerValidation = [
 ];
 
 export const taskCreateValidation = [
-  body("title").isLength({ min: 5 }).isString(),
-  body("description").isLength({ min: 10 }).isString(),
+  body("status").isLength({ min: 1 }).isString(),
+  body("title").isLength({ min: 1 }).isString(),
+  body("content").isLength({ min: 5 }).isString(),
+  body("employer").optional().isString(),
   body("employee").optional().isString(),
+  body("grade").optional(),
+  body("deadLine").optional().isDate()
 ];
+
+

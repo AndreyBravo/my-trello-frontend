@@ -65,6 +65,7 @@ export const Login = () => {
           helperText={errors.password?.message}
           {...register("password", { required: "укажите пароль" })}
           label="Пароль"
+          type="password"
           fullWidth
         />
         <Button disabled={!isValid} type="submit" size="large" variant="contained" fullWidth>
